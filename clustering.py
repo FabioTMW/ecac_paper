@@ -7,13 +7,16 @@ from sklearn import tree
 from sklearn.datasets import load_iris
 from sklearn.ensemble import RandomForestClassifier
 from mlxtend.classifier import EnsembleVoteClassifier
+from sklearn.metrics.pairwise import euclidean_distances
+from sklearn import preprocessing 
+from sklearn.neighbors import NearestNeighbors
 
 nr_clusters = 5 
 
 def org_cluster(check_optimal_cluster_nr, visualize_clusters):
     
     #tested datasets: text_class, iris, yeast
-    data = pandas.read_csv('datasets/iris/iris.data', header=None)
+    data = pandas.read_csv('datasets/yeast/yeast.data', header=None)
 
     data.head()
 
@@ -35,7 +38,7 @@ def org_cluster(check_optimal_cluster_nr, visualize_clusters):
     clf.fit(x_train_var_baseline, x_train_res_baseline)
     score = clf.score(x_test_var, x_test_res)
 
-    print("Global DT Pred Score: ", score)
+    print("Baseline DT Pred Score: ", score)
     #baseline tree
 
     #instantiates kmeans algorithm with the number of clusters defined initially,
@@ -44,6 +47,8 @@ def org_cluster(check_optimal_cluster_nr, visualize_clusters):
 
     #train data without the target value
     x_train_no_target = x_train.iloc[:,0:len(data.columns)-1].values
+    
+    #print(preprocessing.normalize(x_train_no_target))
     
     #builds the clusters using the algorithm
     y_pred = kmeans.fit_predict(x_train_no_target)
@@ -71,6 +76,8 @@ def org_cluster(check_optimal_cluster_nr, visualize_clusters):
         target_by_cluster[y_pred[i]].append(x_train_target[i].tolist())
         i += 1
 
+    #print(data_by_cluster)
+
     j = 0
     decision_trees = []
     estimator = []
@@ -80,7 +87,7 @@ def org_cluster(check_optimal_cluster_nr, visualize_clusters):
     while j < nr_clusters:
         clf = tree.DecisionTreeClassifier()
         #uses train data contained in the cluster to creatre a tree 
-        
+
         clf.fit(np.asarray(data_by_cluster[j]), np.asarray(target_by_cluster[j]))
         decision_trees.append(clf)
 
@@ -99,10 +106,51 @@ def org_cluster(check_optimal_cluster_nr, visualize_clusters):
 
     #Majority voting classifier using the trees built
     eclf = EnsembleVoteClassifier(clfs=estimator, weights=weight, refit=False)
-    eclf.fit(x_test_var, np.ravel(x_test_res))#does nothing as refit=false so it uses the dt previously built
+    eclf.fit(x_test_var, np.ravel(x_test_res))#does nothing as refit=false so it uses the dts previously built
     score = eclf.score(x_test_var, x_test_res)
+    #print('Ensemble accuracy: ', score)
 
-    print('Ensemble accuracy: ', score)
+    test_data_by_cluster = [[] for Null in range(nr_clusters)]
+    test_target_by_cluster = [[] for Null in range(nr_clusters)]
+    
+    #print(test_data_by_cluster)
+
+    #determine what tree will be used by organizing test data by cluster
+    for q in range(len(x_test_var)):
+        
+        points = np.append(kmeans.cluster_centers_, [x_test_var.values[q]], axis=0)
+        #print(points)
+        #gets the first 2 closest neighbors to his test data example using euclidean distance; first point is always the point itself
+        knn = NearestNeighbors(n_neighbors=2)
+        knn.fit(points)
+        close_clusters = knn.kneighbors([points[nr_clusters]], return_distance=False)
+        #print(close_clusters)
+        #print(close_clusters[0][1])
+        #print(np.asarray(x_test_var)[q])
+        #assigns each test data example to an index; e.g. if the test data is in the first index, it will use the 1st tree model
+        test_data_by_cluster[close_clusters[0][1]].append(np.asarray(x_test_var)[q])
+        test_target_by_cluster[close_clusters[0][1]].append(np.asarray(x_test_res)[q])
+
+    
+    total_acc = 0
+    trees_used = 0
+    for z in range(len(decision_trees)):
+        score = 0
+        if len(test_data_by_cluster[z]) != 0:
+            #applied the spcialized trees to the organized data
+            score = decision_trees[z].score(test_data_by_cluster[z], test_target_by_cluster[z])
+            trees_used += 1
+            print('DT Nr', z+1)
+            print('Score:', score)
+        total_acc += score
+
+    total_acc = total_acc / trees_used
+
+    print('Total Tree Scores Average:', total_acc)
+
+
+
+    
     
 
 def elbow_method(pdata, nr_clusters):
