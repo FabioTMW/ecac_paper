@@ -12,6 +12,7 @@ from sklearn import preprocessing
 from sklearn.neighbors import NearestNeighbors
 from sklearn.metrics import accuracy_score
 from tabulate import tabulate
+from sklearn.ensemble import BaggingClassifier
 
 #nr_clusters = 50
 
@@ -41,7 +42,7 @@ datasets = [
 ['waveform21', 3],
 ['waveform40', 4],
 ['wdbc', 4],
-['wine', 4],
+['wine', 3],
 #['yeast', 6]
 ]
 
@@ -56,7 +57,8 @@ def analyse_datasets():
         k = 0
         average_score_base_dt = 0
         average_score_cluster_dt = 0
-        nr_runs = 5
+        average_score_bagging_dt = 0
+        nr_runs = 25
 
         print('Running in dataset ', datasets[i][0])
 
@@ -64,19 +66,31 @@ def analyse_datasets():
             alg_result = org_cluster(False, datasets[i][0], datasets[i][1])
             average_score_base_dt += alg_result[0]
             average_score_cluster_dt += alg_result[1]
+            average_score_bagging_dt += alg_result[2]
             k += 1
         
         average_score_base_dt /= nr_runs
         average_score_cluster_dt /= nr_runs
+        average_score_bagging_dt /= nr_runs
 
         row = []
         row.append(datasets[i][0])
         row.append(datasets[i][1])
         row.append(average_score_cluster_dt)
         row.append(average_score_base_dt)
+        row.append(average_score_bagging_dt)
         table.append(row)
 
-    print(tabulate(table, headers=["Dataset","Nr of Clusters", "DT By Cluster Acc", "Base DT Acc"], tablefmt="github"))
+        best_class = max(average_score_cluster_dt, average_score_base_dt, average_score_bagging_dt)
+
+        if best_class == average_score_cluster_dt:
+            row.append('1)')
+        elif best_class ==  average_score_base_dt:
+            row.append('2)')
+        else:
+            row.append('3)')
+
+    print(tabulate(table, headers=["Dataset","Nr of Clusters", "1)DT By Cluster Acc", "2)Base DT Acc", "3)Bagging DT Acc", "Best classifier"], tablefmt="github"))
     
 
 
@@ -111,12 +125,20 @@ def org_cluster(visualize_clusters, dataset, nr_clusters):
     x_test_res = x_test.iloc[:,len(data.columns)-1:len(data.columns)]
 
     #baseline tree
-    clf = tree.DecisionTreeClassifier(random_state=42)
-    clf.fit(x_train_var_baseline, x_train_res_baseline)
-    baseline_score = clf.score(x_test_var, x_test_res)
+    clf_base = tree.DecisionTreeClassifier(random_state=42)
+    clf_base.fit(x_train_var_baseline, x_train_res_baseline)
+    baseline_score = clf_base.score(x_test_var, x_test_res)
 
     
     #baseline tree
+    
+    #bagging
+    clf_bagging = BaggingClassifier(base_estimator=tree.DecisionTreeClassifier(),
+                        n_estimators=nr_clusters, random_state=42).fit(x_train_var_baseline, x_train_res_baseline.values.ravel())
+
+    bagging_score = clf_bagging.score(x_test_var, x_test_res)
+
+    #bagging
 
     #instantiates kmeans algorithm with the number of clusters defined initially,
     #random_state is a random integer set so the algorithm runs the same way everytime
@@ -178,9 +200,9 @@ def org_cluster(visualize_clusters, dataset, nr_clusters):
     #  print('Score:', score)
 
     #Majority voting classifier using the trees built
-    eclf = EnsembleVoteClassifier(clfs=estimator, weights=weight, refit=False)
-    eclf.fit(x_test_var, np.ravel(x_test_res))#does nothing as refit=false so it uses the dts previously built
-    score = eclf.score(x_test_var, x_test_res)
+    #eclf = EnsembleVoteClassifier(clfs=estimator, weights=weight, refit=False)
+    #eclf.fit(x_test_var, np.ravel(x_test_res))#does nothing as refit=false so it uses the dts previously built
+    #score = eclf.score(x_test_var, x_test_res)
     #print('Ensemble accuracy: ', score)
 
     test_data_by_cluster = [[] for Null in range(nr_clusters)]
@@ -226,11 +248,11 @@ def org_cluster(visualize_clusters, dataset, nr_clusters):
     #print("Baseline DT Score: ", baseline_score)
     #print('Decision Tree to Cluster Score:', total_acc)
 
-    return [baseline_score, total_acc]
+    return [baseline_score, total_acc, bagging_score]
 
 
 def elbow_method_datasets():
-    i= 0
+    i= 10
     while i < len(datasets):
         elbow_method(datasets[i][0])
         i += 1
@@ -253,15 +275,15 @@ def elbow_method(dataset):
 
     Error =[]
 
-    for i in range(1, 50):
+    for i in range(1, 10):
         kmeans = KMeans(n_clusters = i).fit(x_train_no_target)
         kmeans.fit(x_train_no_target)
         Error.append(kmeans.inertia_)
     
-    plt.plot(range(1, 50), Error)
+    plt.plot(range(1, 10), Error)
     plt.title(dataset)
-    plt.xlabel('Nr clusters')
-    plt.ylabel('Error')
+    plt.xlabel('Number of clusters')
+    plt.ylabel('Within groups sum of squares')
     plt.show()
 
 
