@@ -14,36 +14,24 @@ from sklearn.metrics import accuracy_score
 from tabulate import tabulate
 from sklearn.ensemble import BaggingClassifier
 
-#nr_clusters = 50
-
-#name of dataset, optimal number of clusters according tot he elbow rule
+#name of dataset, optimal number of clusters according to the elbow rule
 datasets = [
 ['balance-scale', 8],
-#['bupa', 5],
-#['glass', 7],
-#['haberman', 5],
 ['ionosphere', 3],
 ['iris', 4],
-#['mfeat', 4],
 ['new-thyroid', 6],
 ['optdigits', 50],
-#['o-ring-erosion-only', 2],
-#['o-ring-erosion-or-blowby', 3],
-#['page-blocks', 5],
-#['pima-indians-diabetes', 4],
-#['post-operative', 5],
 ['quadrupeds', 3],
 ['segmentation', 5],
 ['sonar', 50],
 ['spambase', 10],
-['text_class', 8],
+['turkish-text', 8],
 ['vehicle', 5],
 ['vowel', 30],
 ['waveform21', 3],
 ['waveform40', 4],
 ['wdbc', 4],
-['wine', 3],
-#['yeast', 6]
+['wine', 3]
 ]
 
 
@@ -90,7 +78,7 @@ def analyse_datasets():
         else:
             row.append('3)')
 
-    print(tabulate(table, headers=["Dataset","Nr of Clusters", "1)DT By Cluster Acc", "2)Base DT Acc", "3)Bagging DT Acc", "Best classifier"], tablefmt="github"))
+    print(tabulate(table, headers=["Dataset","Nr of Clusters", "1)DT By Cluster Acc", "2)Base DT Acc", "3)Bagging DT Acc", "Best classifier"], tablefmt="latex"))
     
 
 
